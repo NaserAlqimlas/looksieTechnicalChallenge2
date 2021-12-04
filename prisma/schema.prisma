@@ -24,12 +24,12 @@ model Product {
 }
 
 model Product_Attributes {
-  id          Int     @id @default(autoincrement())
-  name        String
-  product_id  Int
-  product     Product @relation(fields: [product_id], references: [id])
-  values      Product_Values[]
-  variants    Product_Variants[]
+  id            Int     @id @default(autoincrement())
+  name          String
+  product_id    Int
+  product       Product @relation(fields: [product_id], references: [id])
+  values        Product_Values[]
+  variants      Product_Variants[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
@@ -40,18 +40,18 @@ model Product_Values {
   attribute_id    Int
   attribute       Product_Attributes @relation(fields: [attribute_id], references: [id])
   variants        Product_Variants[]
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
 }
 
 model SKUs {
-  id          Int @id @default(autoincrement())
-  barcode     String
-  price       Float
-  stock       Int
-  product_id  Int
-  product     Product @relation(fields: [product_id], references: [id])
-  variants    Product_Variants[]
+  id            Int @id @default(autoincrement())
+  barcode       String
+  price         Float
+  stock         Int
+  product_id    Int
+  product       Product @relation(fields: [product_id], references: [id])
+  variants      Product_Variants[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 }
