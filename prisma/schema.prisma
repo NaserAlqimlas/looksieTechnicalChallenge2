@@ -27,7 +27,7 @@ model Product_Attributes {
   id            Int     @id @default(autoincrement())
   name          String
   product_id    Int
-  product       Product @relation(fields: [product_id], references: [id])
+  product       Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
   values        Product_Values[]
   variants      Product_Variants[]
   createdAt     DateTime @default(now())
@@ -38,7 +38,7 @@ model Product_Values {
   id              Int      @id @default(autoincrement())
   value           String
   attribute_id    Int
-  attribute       Product_Attributes @relation(fields: [attribute_id], references: [id])
+  attribute       Product_Attributes @relation(fields: [attribute_id], references: [id], onDelete: Cascade)
   variants        Product_Variants[]
   createdAt       DateTime @default(now())
   updatedAt       DateTime @updatedAt
@@ -50,7 +50,7 @@ model SKUs {
   price         Float
   stock         Int
   product_id    Int
-  product       Product @relation(fields: [product_id], references: [id])
+  product       Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
   variants      Product_Variants[]
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
@@ -62,7 +62,7 @@ model Product_Variants {
   SKU_id        Int
   value_id      Int
   attribute_id  Int
-  product       Product @relation(fields: [product_id], references: [id])
+  product       Product @relation(fields: [product_id], references: [id], onDelete: Cascade)
   attribute     Product_Attributes @relation(fields: [attribute_id], references: [id])
   values        Product_Values @relation(fields: [value_id], references: [id])
   skus          SKUs @relation(fields: [SKU_id], references: [id])

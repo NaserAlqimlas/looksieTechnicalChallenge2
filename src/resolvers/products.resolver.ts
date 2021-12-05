@@ -13,6 +13,7 @@ import {
   ProductsAndVariants,
   Variant,
 } from "../schema/productsAndVariants.schema";
+import { ProductValues } from "src/schema/productValues.schema";
 
 const prisma = new PrismaClient();
 
@@ -27,8 +28,8 @@ class ProductInput {
   @Field()
   price: number;
 
-  @Field(() => [Variant], { nullable: true })
-  variants: Variant[];
+  @Field(() => [ProductVariantInput], { nullable: true })
+  variants: [ProductVariantInput];
 
   @Field()
   barcode: string;
@@ -38,15 +39,57 @@ class ProductInput {
 }
 
 @InputType()
+class EditProductInput {
+  @Field({ nullable: true })
+  id?: number;
+
+  @Field({ nullable: true })
+  name?: string;
+
+  @Field({ nullable: true })
+  description?: string;
+
+  @Field({ nullable: true })
+  price?: number;
+
+  @Field(() => [ProductVariantInput], { nullable: true })
+  variants?: [ProductVariantInput];
+}
+
+@InputType()
+class ProductVariantInput {
+  @Field()
+  attribute: string;
+
+  @Field(() => [String])
+  values: string[];
+}
+
+@InputType()
 class VariantInput {
   @Field()
-  id: number;
+  id: number; // product_id
 
   @Field()
   attribute: string;
 
-  @Field()
+  @Field(() => [String])
   values: string[];
+}
+
+@InputType()
+class EditVariantInput {
+  @Field({ nullable: true })
+  id?: number; //attribute id
+
+  @Field({ nullable: true })
+  attribute?: string;
+
+  @Field({ nullable: true })
+  value?: string;
+
+  @Field({ nullable: true })
+  value_id?: number;
 }
 
 @Resolver()
@@ -82,7 +125,7 @@ export class ProductResolver {
 
     for (let attribute of attributes) {
       const variant = new Variant();
-      variant.attribute = attribute.name;
+      variant.attribute = attribute;
 
       const values = await prisma.product_Values.findMany({
         where: {
@@ -96,15 +139,18 @@ export class ProductResolver {
     }
 
     const productAndVariants: ProductsAndVariants = {
-      product: product,
-      SKU: SKU,
+      product: product[0],
+      SKU: SKU[0],
       variants: variants,
     };
 
+    if (product[0] === undefined) {
+      throw new Error(`Unable to find product with id ${id}`);
+    }
     return productAndVariants;
   }
 
-  @Mutation(() => Product)
+  @Mutation(() => ProductsAndVariants)
   async createProduct(
     @Arg("input") input: ProductInput
   ): Promise<ProductsAndVariants> {
@@ -119,6 +165,7 @@ export class ProductResolver {
     });
 
     //TODO: Figure out if you can optimize this
+    const allVariants: Variant[] = [];
     if (variants) {
       for (let variant of variants) {
         const attribute = await prisma.product_Attributes.create({
@@ -127,15 +174,17 @@ export class ProductResolver {
             product_id: product.id,
           },
         });
-        variant.values.map(
-          async (value) =>
-            await prisma.product_Values.create({
-              data: {
-                value: value.value,
-                attribute_id: attribute.id,
-              },
-            })
-        );
+        const values: ProductValues[] = [];
+        variant.values.map(async (value) => {
+          const newValue = await prisma.product_Values.create({
+            data: {
+              value: value,
+              attribute_id: attribute.id,
+            },
+          });
+          values.push(newValue);
+        });
+        allVariants.push({ attribute: attribute, values: values });
       }
     }
 
@@ -151,14 +200,16 @@ export class ProductResolver {
     const productAndVariants: ProductsAndVariants = {
       product: product,
       SKU: SKU,
-      variants: variants,
+      variants: allVariants,
     };
 
     return productAndVariants;
   }
 
   @Mutation(() => [Variant])
-  async createVariant(@Arg("input") input: [VariantInput]): Promise<Variant[]> {
+  async createVariant(
+    @Arg("input", () => [VariantInput]) input: [VariantInput]
+  ): Promise<Variant[]> {
     const variants: Variant[] = [];
 
     for (let variant of input) {
@@ -179,14 +230,109 @@ export class ProductResolver {
         values.push(insertedValue);
       }
 
-      variants.push({ attribute: attribute.name, values: values });
+      variants.push({ attribute: attribute, values: values });
     }
     return variants;
+  }
+
+  @Mutation(() => Product)
+  async editProduct(@Arg("input") input: EditProductInput): Promise<Product> {
+    const { id, name, price, description } = input;
+
+    const product = await prisma.product.findFirst({ where: { id: id } });
+
+    if (!product) throw new Error(`Unable to find product with id ${id}`);
+
+    if (name !== undefined) {
+      product.name = name;
+    }
+    if (price !== undefined) {
+      product.price = price;
+    }
+    if (description !== undefined) {
+      product.description = description;
+    }
+
+    const newProduct = await prisma.product.update({
+      where: { id: id },
+      data: {
+        name: product.name,
+        price: product.price,
+        description: product.description,
+      },
+    });
+
+    return newProduct;
+  }
+
+  @Mutation(() => Variant)
+  async editVariant(@Arg("input") input: EditVariantInput): Promise<Variant> {
+    const { id, attribute, value, value_id } = input;
+
+    const productAttribute = await prisma.product_Attributes.findFirst({
+      where: { id: id },
+    });
+    const productValues = await prisma.product_Values.findFirst({
+      where: { id: value_id },
+    });
+
+    if (!productAttribute)
+      throw new Error(`Unable to find variant with attribute id ${id}`);
+    if (attribute !== undefined) {
+      await prisma.product_Attributes.update({
+        where: { id: id },
+        data: {
+          product_id: productAttribute.product_id,
+          name: attribute,
+        },
+      });
+    }
+
+    if (!productValues)
+      throw new Error(`Unable to find variant with value id ${value_id}`);
+    if (value !== undefined) {
+      await prisma.product_Values.update({
+        where: { id: value_id },
+        data: {
+          value: value,
+          attribute_id: id,
+        },
+      });
+    }
+
+    const newAttribute = await prisma.product_Attributes.findFirst({
+      where: { id: id },
+    });
+    const newValue = await prisma.product_Values.findFirst({
+      where: { id: id },
+    });
+
+    if (!newAttribute)
+      throw new Error(`Unable to find variant with attribute id ${id}`);
+    if (!newValue)
+      throw new Error(`Unable to find variant with value id ${value_id}`);
+
+    const variant: Variant = {
+      attribute: newAttribute,
+      values: [newValue],
+    };
+
+    return variant;
   }
 
   @Mutation(() => Boolean)
   async deleteProduct(@Arg("id", () => Int) id: number): Promise<Boolean> {
     await prisma.product.delete({ where: { id: id } });
+    return true;
+  }
+
+  @Mutation(() => Boolean)
+  async deleteProducts(
+    @Arg("Ids", () => [Int]) ids: number[]
+  ): Promise<Boolean> {
+    for (let id of ids) {
+      await prisma.product.delete({ where: { id: id } });
+    }
     return true;
   }
 

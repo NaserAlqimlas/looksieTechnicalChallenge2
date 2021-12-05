@@ -1,6 +1,7 @@
 import "reflect-metadata";
 import { Field, ObjectType } from "type-graphql";
 import { Product } from "./product.schema";
+import { ProductAttributes } from "./productAttributes.schema";
 import { ProductValues } from "./productValues.schema";
 import { SKUs } from "./SKUs.schema";
 
@@ -10,7 +11,7 @@ export class ProductsAndVariants {
   product: Object;
 
   @Field(() => SKUs)
-  SKU: Object;
+  SKU: SKUs;
 
   @Field(() => [Variant])
   variants: Variant[];
@@ -18,8 +19,8 @@ export class ProductsAndVariants {
 
 @ObjectType()
 export class Variant {
-  @Field(() => String)
-  attribute: string;
+  @Field(() => ProductAttributes)
+  attribute: ProductAttributes;
 
   @Field(() => [ProductValues])
   values: ProductValues[];
